@@ -1,0 +1,79 @@
+---
+title: "Class10R"
+author: "Katelyn Brown"
+date: "2/17/2022"
+output: pdf_document
+---
+
+## Examine 1000 Genome Data
+
+> Q5. What proportion of the Mexican Ancestry in Los Angeles sample population (MXL) are
+homozygous for the asthma associated SNP (G|G)?
+
+```{r}
+# Read genotype file ofrom Ensembl
+mxl <- read.csv("373531-SampleGenotypes-Homo_sapiens_Variation_Sample_rs8067378.csv")
+mxl
+```
+
+```{r}
+# Use table() to answer question
+mxl$Genotype..forward.strand.
+table(mxl$Genotype..forward.strand.)/nrow(mxl)
+```
+
+14% of mxl are homozygous for the asthma associated SNP (G|G).
+
+Examine GBR data set for the same SNP to compare populations.
+
+```{r}
+gbr <- read.csv("373522-SampleGenotypes-Homo_sapiens_Variation_Sample_rs8067378.csv")
+gbr
+```
+
+```{r}
+table(gbr$Genotype..forward.strand.)/nrow(gbr)
+```
+
+About 29% of gbr are homozygous for the same SNP.
+
+## Expression by Genotype Analysis
+
+I want to read my RNA-Seq expression results into R. This file is not a CSV but rather has fields separated by space. Because of this, use `read.table()`
+
+```{r}
+x <- read.table("rs8067378_ENSG00000172057.6.txt")
+head(x)
+```
+
+> Q13. Read this file into R and determine the sample size for each genotype and their
+corresponding median expression levels for each of these genotypes.
+
+> Is the mean expression different based on genotype?
+
+```{r}
+table(x$geno)
+summary(x[x$geno == "A/A",]$exp)
+summary(x[x$geno == "A/G",]$exp)
+summary(x[x$geno == "G/G",]$exp)
+```
+
+Based on the summary statistics of each genotype, the median expression levels are 31.25 for A/A, 25.065 for A/G, and 20.074 for G/G.
+
+## Make a summary overview figure.
+
+Use ggplot to make a boxplot with data.
+
+> Q14. Generate a boxplot with a box per genotype, what could you infer from the relative
+expression value between A/A and G/G displayed in this plot? Does the SNP effect the
+expression of ORMDL3?
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+ggplot(x) + aes(x = geno, y = exp, fill = geno) + geom_boxplot(notch = TRUE) + labs(title = "Genotype Versus Gene Expression", x = "Genotype", y = "Gene Expression")
+```
+
+Based on the boxplot, the A/A genotype is correlated with a higher gene expression level compared to both A/G and G/G.
