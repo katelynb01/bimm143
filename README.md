@@ -1,2 +1,2 @@
-# bimm143
-Bioinformatics BIMM 143 W22 at UCSD.
+# BIMM143
+Bioinformatics BIMM 143 W22 at UC San Diego.
