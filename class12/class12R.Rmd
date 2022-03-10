@@ -1,0 +1,199 @@
+---
+title: "class12R"
+author: "Katelyn Brown PID 15891811"
+date: "2/24/2022"
+output: pdf_document
+---
+
+Upload data.
+
+```{r setup, message = FALSE}
+library(DESeq2)
+library(ggplot2)
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+```
+
+## 1. Input the counts and metadata files.
+
+```{r input}
+metaFile <- "GSE37704_metadata.csv"
+countFile <- "GSE37704_featurecounts.csv"
+colData <- read.csv(metaFile, row.names = 1)
+head(colData)
+countData <- read.csv(countFile, row.names = 1)
+head(countData)
+```
+
+> Q. Remove first column of countData.
+
+```{r}
+countData <- as.matrix(countData[,-1])
+head(countData)
+```
+
+> Q. Check if colData matches the row names.
+
+```{r}
+all(colData$id == colnames(countData))
+```
+
+> Q. Remove genes that have 0 read count across all samples.
+
+```{r filter}
+counts <- countData[rowSums(countData) != 0,]
+head(counts)
+```
+
+## 2. Run DESeq.
+
+```{r deseq}
+dds <- DESeqDataSetFromMatrix(countData = counts, colData = colData, design = ~condition)
+dds <- DESeq(dds)
+dds
+```
+
+> Q. Call the summary() function on your results to get a sense of how many genes are up or down-regulated at the default 0.1 p-value cutoff.
+
+```{r}
+res <- results(dds, contrast = c("condition", "hoxa1_kd", "control_sirna"))
+summary(res)
+```
+
+## 3. Add annotation.
+
+> Q. Use the mapIDs() function multiple times to add SYMBOL, ENTREZID and GENENAME annotation to our results by completing the code below.
+
+```{r annotation}
+columns(org.Hs.eg.db)
+res$symbol <- mapIds(org.Hs.eg.db, keys = row.names(res), keytype = "ENSEMBL", column = "SYMBOL", multiVals = "first")
+head(res$symbol)
+res$entrez <- mapIds(org.Hs.eg.db, keys = row.names(res), keytype = "ENSEMBL", column = "ENTREZID", multiVals = "first")
+head(res$entrez)
+res$genename <- mapIds(org.Hs.eg.db, keys = row.names(res), keytype = "ENSEMBL", column = "GENENAME", multiVals = "first")
+head(res$genenames)
+```
+
+## 4. Make volcano plot.
+
+Common summary figure that gives an overview of the results.
+
+```{r}
+plot(res$log2FoldChange, -log(res$padj))
+```
+
+Try ggplot.
+
+```{r}
+tmp <- as.data.frame(res)
+tmp$fc <- abs(res$log2FoldChange) > 2
+
+ggplot(tmp) + aes(log2FoldChange, -log(padj), col = tmp$fc) + geom_point()
+```
+
+Use Enhanced Volcano.
+
+```{r}
+library(EnhancedVolcano)
+EnhancedVolcano(tmp, lab = tmp$symbol, x = 'log2FoldChange', y = 'pvalue')
+```
+
+Save results.
+
+```{r}
+write.csv(res, file = "deseq_results.csv")
+```
+
+## 5. Pathway analysis.
+
+Try to bring back the biology and help with the interpretation of the results. Try to answer the question: which pathways and functions feature heavily in our differentially expressed genes?
+
+```{r}
+library(pathview)
+library(gage)
+library(gageData)
+```
+
+```{r}
+data(kegg.sets.hs)
+data(sigmet.idx.hs)
+```
+
+```{r}
+kegg.sets.hs <- kegg.sets.hs[sigmet.idx.hs]
+head(kegg.sets.hs, 3)
+```
+
+Make a vector and use gage.
+
+```{r}
+foldchanges <- res$log2FoldChange
+names(foldchanges) <- res$entrez
+head(foldchanges)
+keggres <- gage(foldchanges, gsets = kegg.sets.hs)
+attributes(keggres)
+```
+
+Look at down and up pathways. 
+
+```{r}
+head(keggres$less)
+head(keggres$greater)
+```
+
+Use pathview to visualize results from cell cycle.
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id="hsa04110")
+```
+
+Look at top 5 pathways.
+
+```{r}
+keggrespathways <- rownames(keggres$greater)[1:5]
+
+keggresids <- substr(keggrespathways, start=1, stop=8)
+keggresids
+```
+
+Use pathview to visualize top 5 pathways.
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id=keggresids, species="hsa")
+```
+
+> Q. Can you do the same procedure as above to plot the pathview figures for the top 5 down-regulated pathways?
+
+```{r}
+keggresdown <- rownames(keggres$less)[1:5]
+keggresdownids <- substr(keggresdown, start = 1, stop = 8)
+keggresdownids
+
+pathview(gene.data = foldchanges, pathway.id = keggresdownids, species = "hsa")
+```
+
+
+### Gene Ontology
+
+```{r}
+data(go.sets.hs)
+data(go.subs.hs)
+gobpsets <- go.sets.hs[go.subs.hs$BP]
+gobpres <- gage(foldchanges, gsets=gobpsets, same.dir=TRUE)
+lapply(gobpres, head)
+```
+
+### Reactome
+
+```{r}
+sig_genes <- res[res$padj <= 0.05 & !is.na(res$padj), "symbol"]
+print(paste("Total number of significant genes:", length(sig_genes)))
+```
+
+```{r}
+write.table(sig_genes, file="significant_genes.txt", row.names=FALSE, col.names=FALSE, quote=FALSE)
+```
+
+> Q. What pathway has the most significant “Entities p-value”? Do the most significant pathways listed match your previous KEGG results? What factors could cause differences between the two methods?
+
+The endosomal/vacuolar pathway has the most significant entities p-value, and the cell cycle/mitotic pathway has a significant entities p-value. The cell cycle pathway matches the KEGG results. Differing databases can cause the differences between the methods.
