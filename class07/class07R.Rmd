@@ -1,0 +1,264 @@
+---
+title: "Class 07 R: Machine Learning"
+author: "Katelyn Brown PID: A15891811"
+date: "2/8/2022"
+output: pdf_document
+---
+
+# Clustering Methods
+
+Find groups (clusters) in my data.
+
+## K-means clustering
+
+Make up some data to test with.
+
+```{r}
+# Make up some data with two clear groups
+tmp <- c(rnorm(30, mean = 3), rnorm(30, mean = -3))
+x <- cbind(tmp, rev(tmp))
+
+plot(x)
+```
+
+The `kmeans()` function does K-means clustering
+
+```{r}
+k <- kmeans(x, centers = 4, nstart = 20)
+k
+```
+
+> How many points are in each cluster?
+
+We can use the dollar syntax to get at the results (components of the list)
+
+```{r}
+k$size
+```
+
+There are 30 points in each cluster.
+
+> Q2. What 'component' of your result object details
+  - cluster size?
+  - cluster assignment/membership?
+  - cluster center?
+  
+```{r}
+k$size
+
+k$cluster
+
+k$centers
+```
+
+Cluster size is 'size', cluster membership is 'cluster', and cluster center is 'center'.
+
+> Q3. Plot x colored by the kmeans cluster assignment and add cluster centers as
+  blue points.
+
+```{r}
+plot(x, col = k$cluster)
+points(k$centers, col = "blue", pch = 15, cex = 2)
+```
+
+## Hierarchal Clustering
+
+The `hclust()` function needs a distance matrix as input but not our original data. For this we use the `dist()` function.
+
+```{r}
+hc <- hclust(dist(x))
+hc
+# Visualize plot
+plot(hc)
+abline(h = 10, col = "red")
+```
+
+To get our cluster membership vector, we need to cut our tree and for this we use the `cutree()`
+
+```{r}
+# Cut tree at height = 10
+cutree(hc, h = 10)
+```
+
+You can cut by a given height h = or into a given number of groups with k = 
+
+```{r}
+# Cut tree into 2 groups
+cutree(hc, k = 2)
+```
+
+# Principal Component Analysis (PCA)
+
+## PCA of UK food data
+
+Let's read our data about the stuff people from the UK eat and drink.
+
+```{r}
+url <- "https://tinyurl.com/UK-foods"
+x <- read.csv(url, row.names = 1)
+```
+
+Look at the first bit of the file.
+
+```{r}
+head(x)
+```
+
+> Q1. What are the dimensions in this dataset?
+
+```{r}
+dim(x)
+```
+
+> Q2. How do you solve the "row-names problem?"
+
+I solved the row-names problem when assigning the csv file to "x," changing the row names to the first column. 
+
+We can try to make some plots to understand the data a bit more. 
+
+> Q3. Changing the optional argument in the barplot() function results in the stacked plot?
+
+```{r}
+# Make barplot
+barplot(as.matrix(x))
+```
+
+```{r}
+# Edit barplot
+barplot(as.matrix(x), beside = TRUE)
+```
+
+Using the argument within barplot() of `beside = FALSE` results in a stacked plot.
+
+> Q6. What is the main difference between N. Ireland and other countries in the UK?
+
+Although the differences are hard to visualize using the more basic plots, N. Ireland has a more varied spread of food eaten, whereas the other countries in the UK have very similar food data.
+
+### PCA to the rescue
+
+The main base R function for PCA is called `prcomp()`. 
+
+```{r}
+# Make countries as rows, foods as variables
+t(x)
+# prcomp
+pca <- prcomp(t(x))
+summary(pca)
+```
+
+The more variance in a PC, the better.
+What is in this returned PCA object?
+
+```{r}
+# Look at attributes of pca
+attributes(pca)
+```
+
+> Q7. Complete the code to plot PC1 versus PC2.
+> Q8. Customize the plot so the colors of the country match the colors in the UK and N. Ireland map.
+
+```{r}
+# Plot PC1 against PC2
+plot(pca$x[,1:2], col = c("orange", "red", "blue", "green"), pch = 15)
+text(pca$x[,1], pca$x[,2], labels = colnames(x))
+```
+
+We can look at how the variables contribute to our new PCs by examining the `pca$rotation` component of our new PCs.
+
+```{r}
+barplot(pca$rotation[,1], las = 2)
+```
+
+## PCA of RNA-seq data
+
+Let's read the data of gene expression.
+
+```{r}
+url2 <- "https://tinyurl.com/expression-CSV"
+rna.data <- read.csv(url2, row.names=1)
+head(rna.data)
+```
+
+> Q10. How many genes (rows)?
+
+```{r}
+nrow(rna.data)
+```
+
+How many experiments (columns)?
+
+```{r}
+ncol(rna.data)
+```
+
+There are 100 genes, with 5 wildtype samples and 5 knockout samples for each gene (10 total).
+
+Let's do PCA of this dataset. First we take the transpose as that is what the prcomp() function wants.
+
+```{r}
+pca <- prcomp(t(rna.data), scale = TRUE)
+summary(pca)
+```
+
+PC1 is the best measure of variance, with 92.62% of the variance being accounted for in PC1. We can make our score (PCA) plot from the `pca$x`.
+
+```{r}
+plot(pca$x[,1], pca$x[,2])
+```
+
+Make a color vector to color in the plot by wt and ko
+```{r}
+colvec <- c(rep("green", 5), rep("orange", 5))
+plot(pca$x[,1], pca$x[,2], col = colvec, pch = 15)
+text(pca$x[,1], pca$x[,2], labels = colnames(rna.data))
+```
+
+Use ggplot to make new plots.
+
+```{r}
+# Load ggplot
+library(ggplot2)
+df <- as.data.frame(pca$x)
+# Make basic plot
+ggplot(df) + aes(PC1, PC2) + geom_point()
+```
+
+Edit and add to the ggplot.
+
+```{r}
+# Add `wt` and `ko` condition column
+df$samples <- colnames(rna.data)
+df$condition <- substr(colnames(rna.data), 1, 2)
+
+# Add to ggplot
+p <- ggplot(df) + aes(PC1, PC2, label = samples, col = condition) + 
+  geom_label(show.legend = FALSE)
+p
+```
+
+Make the ggplot more cohesive by adding more elements.
+
+```{r}
+p + labs(title = "PCA of RNASeq Data", subtitle = "PC1 clearly separates wild-type from knockout samples", x = paste0("PC1 (92.6%)"), y = paste0("PC2 (2.3%)"), caption = "BIMM 143 example data") + theme_bw()
+```
+
+```{r}
+# Make pca.var.per
+pca.var <- pca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100, 1)
+# Test ggplot with pca.var.per
+p + labs(title = "PCA of RNASeq Data", subtitle = "PC1 clearly separates wild-type from knockout samples", x = paste0("PC1 (", pca.var.per[1], "%)"), y = paste0("PC2 (", pca.var.per[2], "%)"), caption = "BIMM 143 example data") + theme_bw()
+```
+
+Gene loadings
+
+```{r}
+loading_scores <- pca$rotation[,1]
+# Find top 10 genes that contribute most to PC1 in either direction
+gene_scores <- abs(loading_scores)
+gene_score_ranked <- sort(gene_scores, decreasing = TRUE)
+# Show names of top 10 genes
+top_10_genes <- names(gene_score_ranked[1:10])
+top_10_genes
+```
+
