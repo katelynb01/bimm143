@@ -1,0 +1,50 @@
+---
+title: "class11R"
+author: "Katelyn Brown"
+date: "2/22/2022"
+output: pdf_document
+---
+
+Install BioConductor
+
+```{r}
+# install.packages("BiocManager)
+# BiocManager :: install()
+# BiocManager :: install("DESeq2")
+library(BiocManager)
+library(DESeq2)
+```
+
+Upload the count data and meta files.
+
+```{r}
+counts <- read.csv("https://bioboot.github.io/bimm143_W18/class-material/airway_scaledcounts.csv", row.names=1)
+metadata <-  read.csv("https://bioboot.github.io/bimm143_W18/class-material/airway_metadata.csv")
+head(counts)
+head(metadata)
+```
+
+```{r}
+control <- metadata[metadata[,"dex"]=="control",]
+control.counts <- counts[ ,control$id]
+control.mean <- rowSums( control.counts )/4 
+head(control.mean)
+```
+
+> Q3. How would you make the above code in either approach more robust?
+
+You can make the above code more robust by using summary() instead of just finding the mean.
+
+> Q4. Follow the same procedure for the treated samples (i.e. calculate the mean per gene across drug treated samples and assign to a labeled vector called treated.mean)
+
+```{r}
+treated <- metadata[metadata[,"dex"]=="treated",]
+treated.counts <- counts[ ,treated$id]
+treated.mean <- rowSums( treated.counts )/4 
+head(treated.mean)
+```
+
+```{r}
+meancounts <- data.frame(control.mean, treated.mean)
+```
+
